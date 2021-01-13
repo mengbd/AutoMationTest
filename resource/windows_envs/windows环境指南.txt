@@ -1,0 +1,11 @@
+第一步，安装pywin32，地址：http://www.lfd.uci.edu/~gohlke/pythonlibs/#pywin32  /////  pip install pywin32
+
+第二步，下载pyhook_py3k，地址：https://github.com/Answeror/pyhook_py3k  ////解压即可 
+
+第三步，下载swig.exe，地址：http://www.swig.org/download.html ///同理解压，并把解压目录添加到系统变量Path中
+
+第四步，解压缩pyhook_py3k，并进行编译，cmd进入到setup.py的目录，执行命令：Python setup.py build_ext --swig=“这里是你的swig.exe的路径”\swigwin-3.0.12\swig.exe，可以根据实际情况修改swig.exe的路径，另外本机最好已安装VC2008
+
+第五步，安装编译好的pyhook_py3k，命令：pip install .
+
+第六步:  instant_client也需要添加到系统变量中

@@ -1,9 +1,10 @@
 import pytest
 import os
 import sys
+import re
 
-from logFile import logger
-from config.globalVars import G
+import logging
+from config.globalVars import BaseConfig
 from utils.Others.TimeOperation import datetime_strftime
 from Models.TestCase import Testcaseresult, saveCase
 
@@ -11,8 +12,17 @@ from Models.TestCase import Testcaseresult, saveCase
 总工程的conftest为pytest工程共享配置，每个测试函数均可调用，
 各个测试模块文件夹中定义的fixture仅仅该文件夹下的代码可以调用
 fixture可以实现各种初始化，后置处理
-
 """
+config = BaseConfig()
+per_case = Testcaseresult()
+log = logging.getLogger(__name__)
+
+
+def log_gennerator(instance, path):
+    if instance.logs and path:
+        path = path.encode('utf-8').decode('unicode_escape')
+        with open(path, 'w+') as f:
+            f.write(instance.logs)
 
 
 def pytest_runtest_setup(item):
@@ -20,30 +30,24 @@ def pytest_runtest_setup(item):
         print("TestCase args={} kwargs={}".format(mark.args, mark.kwargs))
         sys.stdout.flush()
 
-@pytest.fixture(scope='session', autouse=False)
-def log():
-    """ log fixture 打印消息"""
-    logs = logger.Logger("debug")
-    yield logs
 
-
-@pytest.fixture(scope="function", autouse=True)
-def preInit(request, log):
+@pytest.fixture(scope="function", autouse=True, )
+def preInit(request, *args, **kwargs):
     """初始化fixture 返回log对象
     fixture可以调用其他fixture
-
     """
     log.info("Start Setting UP " + "\r")
     os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
     filepath = request.node.nodeid
-    G.now_case_startTime = datetime_strftime()
+    per_case.create_time = datetime_strftime()
     log.info("TestCase: %s Start, Using Fixtures: %s " % (filepath, str(request.fixturenames)))
-    G.now_case_level = request.node.own_markers[0].args[0].split("]")[0][1]
-    G.now_case_name = request.node.own_markers[0].args[0].split("]")[1]
-    G.now_case_number = request.node.name
-    log.info("UsingMarker: %s CaseLevel: Level %s CaseName:%s" % (request.node.own_markers[0].name, G.now_case_level, G.now_case_name ) + "\r")
-
-    yield log
+    per_case.caselevel = request.node.own_markers[0].args[0].split("]")[0][1]
+    per_case.case_name = request.node.own_markers[0].args[0].split("]")[1]
+    per_case.case_number = request.node.name
+    per_case.marker = request.node.own_markers[0].name
+    log.info("UsingMarker: %s CaseLevel: Level %s CaseName:%s" % (
+        per_case.marker, per_case.caselevel, per_case.case_name) + "\r")
+    return log
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
@@ -59,39 +63,36 @@ def pytest_runtest_makereport(item, call):
     out = yield
     report = out.get_result()
     if report.when == 'call':
-        logpath = os.path.join(G.log_path, "%s_%s.log" % (datetime_strftime(), report.head_line))
+        logpath = os.path.join(config.log_path, "%s_%s.log" % (datetime_strftime("%Y-%m-%d_%H%M%S"), report.head_line))
+        if 'win' in sys.platform:
+            logpath = logpath.replace('\\', '/')
         logs = ''
-        with open(logpath, "a+") as  f:
-            f.write("当前节点: %s " % report.nodeid + "\r")
-            logs += "当前节点: %s " % report.nodeid + "\r"
-            f.write("TestCaseName: %s   Result: %s   Duration: %sS " % (
-                report.head_line, report.outcome, report.duration) + "\r")
-            logs += "TestCaseName: %s   Result: %s   Duration: %sS " % (
-                report.head_line, report.outcome, report.duration) + "\r"
-            for i in report.sections:
-                for j in i:
-                    if "Captured" in j:
-                        f.write("-" * 20 + j + "-" * 20 + "\r")
-                        logs += "-" * 20 + j + "-" * 20 + "\r"
-                    else:
-                        f.write(j + "\r")
-                        logs += j + "\r"
-                if report.longreprtext:
-                    f.write(report.longreprtext + "\r")
-                    logs += report.longreprtext + "\r"
-        if G.TASK_NAME != "Local":
-            # TASK_NAME 为Local时不会上传测试记录，但会在本地留下日志信息
-            now_case = Testcaseresult()
-            now_case.case_number = G.now_case_number
-            now_case.case_name = G.now_case_name
-            now_case.Level = G.now_case_level
-            now_case.result = str(report.outcome)
-            now_case.create_time = G.now_case_startTime
-            now_case.create_worker = G.OPERATION_WORKER
-            now_case.taskname = G.TASK_NAME
-            now_case.ending_time = datetime_strftime()
-            now_case.ending_worker = G.OPERATION_WORKER
-            now_case.marker = str(report.keywords)
-            now_case.imgurl = None if not G.now_case_img_url else G.now_case_img_url
-            now_case.logs = logs
-            saveCase(now_case)
+        logs += "当前节点: %s " % report.nodeid + "\r"
+        logs += "TestCaseName: %s   Result: %s   Duration: %sS " % (
+            report.head_line, report.outcome, report.duration) + "\r"
+        for i in report.sections:
+            for j in i:
+                if "Captured" in j:
+                    logs += "-" * 20 + j + "-" * 20 + "\r"
+                else:
+                    logs += j + "\r"
+            if report.longreprtext:
+                logs += report.longreprtext + "\r"
+        per_case.id = 0
+        per_case.create_worker = config.worker
+        per_case.result = report.outcome
+        per_case.taskname = config.task_name
+        per_case.ending_time = datetime_strftime()
+        per_case.ending_worker = config.worker
+        per_case.logs = logs
+        if config.task_name != 'LOCAL':
+            try:
+                duration = re.findall(r'耗时\d+\.\d+', logs)
+                if duration:
+                    per_case.request_time = duration[0]
+            except Exception as e:
+                pass
+            if hasattr(item, 'imgurl'):
+                per_case.imgurl = item.imgurl
+            saveCase(per_case)
+        log_gennerator(per_case, logpath)

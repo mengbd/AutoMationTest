@@ -1,10 +1,12 @@
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
-from config.globalVars import G
+from config.globalVars import UIGlobalVars
 from utils.Others.TimeOperation import sleep
-from logFile.logger import Logger
-log = Logger("DEBUG")
+import logging
+
+log = logging.getLogger(__file__)
+G = UIGlobalVars()
 
 """
 selenium基类
@@ -17,7 +19,7 @@ class WebPage(object):
 
     def __init__(self, driver):
         self.driver = driver
-        self.timeout = 20
+        self.timeout = G.TIME_OUT
         self.wait = WebDriverWait(self.driver, self.timeout)
 
     def get_url(self, url):
@@ -57,7 +59,7 @@ class WebPage(object):
         sleep(0.5)
         ele = self.find_element(locator)
         log.info("切换至定位元素为%s%s的ifraeme" % locator)
-        self.driver.switch_to_frame(ele)
+        self.driver.switch_to.frame(ele)
 
     def input_text(self, locator, txt):
         """输入(输入前先清空)"""
@@ -88,6 +90,8 @@ class WebPage(object):
         self.driver.refresh()
         self.driver.implicitly_wait(30)
 
+    def url(self):
+        return self.driver.current_url
 
-if __name__ == "__main__":
-    pass
+
+

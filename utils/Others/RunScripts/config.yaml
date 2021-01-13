@@ -1,0 +1,17 @@
+##### 根据文件名 ByFilename, 根据用例名，ByCasename
+运行模式: ByFilename
+# 根据文件名跑填，多个文件用,隔开
+文件名: ['test_z_workflow_api', 'test_z_web_container_api']
+# 根据用例名跑填，多个用例用,隔开
+用例名: []
+# 失败重新跑的次数
+失败重跑次数: 1
+失败重跑延时: 5
+#任务名 非Local会上传测试日志至数据库
+任务名: Daily
+
+#工程文件夹
+工程文件夹: /TEST_AUTOMATION/
+
+
+

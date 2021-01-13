@@ -1,0 +1,32 @@
+转件材料: css==li[z-tabindex='1']>a
+批量下载: css==div[name='treeDownload']
+批量删除: css==div[name='treeRemove']
+材料袋: css==#z_ztree_376884 > div > div.z-ztree-headformat > div > span
+材料目录: css==.ztree>li
+材料袋节点: css==span.node_name
+上传按钮: css==#materials_tree_upload
+退回: css==a[name='calBackBtn']
+退回节点: css==div.z-modal-body > div > div.z-comp-tab > div > div > ul > li
+确定退回: css==i.fa-check-circle
+取消退回: css==i.fa-window-close-o
+退回原因: css==.callbackremark
+弹框确认: css==span[index=0]
+弹框取消: css==span[index=1]
+流程办理用户: css==.user
+转件按钮: css==.transfer-process
+转件人: css==.node_name
+确定转件: css==.fa-check-circle
+作废: css==a[name=obsoleteBtn]
+作废原因: css==div[name='nullyApply$nullyReason']>textarea
+启动作废流程: css==div[name=nullyApply_save]
+取消作废: css==div[name=nullyApply_cancel]
+流程日志: css==a[name='flow_log']
+流程详情: css==.process-list>li
+流程挂起: css==a[name='HangUpBtn']
+挂起原因: css==div[name='hangUp$hangupReason']>textarea
+确认挂起: css==div[name='hangUp_save']
+取消挂起: css==div[name='hangUp_cancel']
+收藏按钮: css==a[name='focusBtn']
+取消收藏: css==a[name='unFocusBtn']
+关闭流程: css==a[name='closeBtn']
+抄送按钮: css==a[name='carbonCopyBtn']

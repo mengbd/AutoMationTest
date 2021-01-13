@@ -1,6 +1,8 @@
-from sqlalchemy import Column, DateTime, VARCHAR, NCHAR, Integer, create_engine, CLOB
+from sqlalchemy import Column, VARCHAR, Integer, create_engine, DateTime, String
+from sqlalchemy.dialects.mysql import LONGTEXT, DATETIME
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+import requests
+import json
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -8,39 +10,71 @@ metadata = Base.metadata
 
 class Testcaseresult(Base):
     __tablename__ = 'testcaseresult'
-    __table_args__ = {'comment': '测试数据管理'}
 
-    id = Column(Integer, primary_key=True, comment='主键')
-    create_worker = Column(VARCHAR(36), comment='创建人')
-    create_time = Column(VARCHAR(36), comment='创建时间')
-    ending_worker = Column(VARCHAR(36), comment='最后修改人')
-    ending_time = Column(VARCHAR(36), comment='最后修改时间')
-    logs = Column(CLOB(10000), comment='测试日志')
-    result = Column(NCHAR(200), comment='测试结果')
-    case_name = Column(NCHAR(200), comment='用例名')
-    case_number = Column(NCHAR(200), comment='用例编号')
-    marker = Column(NCHAR(200), comment='用例模块(Marker)')
-    Level = Column(NCHAR(400), comment='用例等级')
-    imgurl = Column(NCHAR(400), comment='截图')
-    taskname = Column(NCHAR(400), comment='任务名')
+    id = Column(Integer, primary_key=True)
+    create_worker = Column(String(30))
+    create_time = Column(DATETIME(fsp=6))
+    ending_worker = Column(String(30))
+    ending_time = Column(DATETIME(fsp=6))
+    logs = Column(LONGTEXT)
+    result = Column(String(30))
+    case_name = Column(String(255))
+    case_number = Column(String(100))
+    marker = Column(String(255))
+    caselevel = Column(Integer)
+    imgurl = Column(String(255))
+    taskname = Column(String(255))
+    request_time = Column(String(10))
 
-engine = create_engine("oracle+cx_oracle://username:password@ip:port/instance_name",
-                                    max_overflow = 5) #创建引擎
+    def __str__(self):
+        return {
+            'id': self.id,
+            'create_worker': self.create_worker,
+            'create_time': self.create_time,
+            'ending_worker': self.ending_worker,
+            'ending_time': self.ending_time,
+            'logs': self.logs,
+            'result': self.result,
+            'case_name': self.case_name,
+            'case_number': self.case_number,
+            'marker': self.marker,
+            'caselevel': self.caselevel,
+            'imgurl': self.imgurl if self.imgurl else None,
+            'taskname': self.taskname,
+            'request_time': self.request_time
+
+        }
 
 
-def init_db(): #初始化表
+engine = create_engine("mysql+pymysql://username:password@ip:3306/databasename",
+                       max_overflow=5)  # 创建引擎
+
+
+def init_db():  # 初始化表
     Base.metadata.create_all(bind=engine)
 
+
 def getModel():
-    cmd = r"""sqlacodegen oracle+cx_oracle://username:password@ip:port/instance_name --outfile filename.py"""
+    cmd = r"""sqlacodegen oracle+cx_oracle://TESTCASE:password\!@ip:1521/test --outfile filename.py"""
+    mysql = '''sqlacodegen mysql+pymysql://TestCenterUser:password!@ip:3306/testcenter --outfile 
+    filename.py '''
 
 
 def saveCase(instance):
-    Session_class = sessionmaker(bind=engine)
-    Session = Session_class()
-    try:
-        Session.add(instance)
-    except Exception as e:
-        Session.rollback()
-    Session.commit()
-    Session.close_all()
+    ##目前采用通过SQlalchemy方式来记录，后续更换为通过POST方式增加记录
+
+    # Session_class = sessionmaker(bind=engine)
+    # Session = Session_class()
+    # try:
+    #     Session.add(instance)
+    # except Exception as e:
+    #     Session.rollback()
+    # Session.commit()
+    # Session.close_all()
+    datas = instance.__str__()
+    req = requests.post('http://ip:83/api/caselog/', json=datas)
+
+    assert req.status_code == 201
+
+
+

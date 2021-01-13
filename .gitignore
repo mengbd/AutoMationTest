@@ -1,0 +1,8 @@
+.pytest_cache
+/log/*.log
+/report/*.png
+venv/
+/venv/
+/log
+.idea
+./.idea/*

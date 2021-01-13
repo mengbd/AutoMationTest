@@ -1,8 +1,10 @@
 import os
 import sys
-from logFile.logger import getLog
+import logging
+import re
+from utils.Others.TimeOperation import sleep
 
-log = getLog("DEBUG")
+log = logging.getLogger(__name__)
 
 
 def mk_dir(path):
@@ -35,3 +37,37 @@ def setPath(path, operation="add"):
             os.environ["Path"] -= path
 
         return True
+
+
+def list_folder(path):
+    if path:
+        try:
+            return os.listdir(path)
+        except OSError:
+            raise OSError("查找路径下文件出错")
+
+
+def Ping(raw_destination):
+    assert type(raw_destination) is str
+    destination = raw_destination.split('.')
+    if len(destination) == 4:
+        for i in destination:
+            assert type(eval(i)) is int
+    elif len(destination) == 3:
+        for i in destination:
+            assert re.match(r'[\w\\:/]+', i)
+    recv = os.popen('ping %s' % raw_destination)
+    sleep(5)
+    recv = recv.read()
+    wrong = re.findall(r'Request\stimed\sout', recv)
+    ttl = re.findall(r'TTL=\d+', recv)
+    if not wrong and ttl:
+        return True
+    else:
+        return False
+
+
+
+
+if __name__ == "__main__":
+    print(Ping('ip'))

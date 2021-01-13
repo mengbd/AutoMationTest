@@ -1,6 +1,8 @@
 import os
 import yaml
-from config.globalVars import G
+from config.globalVars import UIGlobalVars
+
+G = UIGlobalVars()
 
 
 class Element:
@@ -23,6 +25,5 @@ class Element:
         raise ArithmeticError("{}中不存在关键字：{}".format(self.file_name, item))
 
 
-if __name__ == '__main__':
-    search = Element('z_user_org_rightLoginindex')
-    print(search["userPwd"])
+def read_config(configname):
+    return Element(configname)

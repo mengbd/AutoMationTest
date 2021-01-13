@@ -6,7 +6,7 @@ def timestamp():
     return time.time()
 
 
-def datetime_strftime(fmt="%Y%m%d-%H%M%S"):
+def datetime_strftime(fmt="%Y-%m-%d %H:%M:%S"):
     """datetime格式化时间"""
     return datetime.datetime.now().strftime(fmt)
 

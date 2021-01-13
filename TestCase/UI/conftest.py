@@ -1,13 +1,13 @@
 import pytest
 
 from selenium import webdriver
-from config.browser import Browser
-from config.globalVars import G
-from logFile.logger import Logger
+from config.globalVars import UIGlobalVars
 from utils.HTTPRequest.HttpRequest import uploadFileToServer
 from utils.Others.TimeOperation import datetime_strftime
+import logging
 
-log = Logger()
+log = logging.getLogger(__name__)
+config = UIGlobalVars()
 driver = None
 
 
@@ -19,13 +19,15 @@ def drivers(request):
     :return:
     """
     global driver
-    if driver is None:
-        Browser.set_browser()
-        if G.browser == "CHROME":
-            driver = webdriver.Chrome(executable_path=G.DRIVER_PATH)
+    if not driver:
+        config.set_browser()
+        driver_path = config.DRIVER_PATH
+        if config.browser.upper() == "CHROME":
+            driver = webdriver.Chrome(executable_path=driver_path)
         else:
-            driver = webdriver.Ie(executable_path=G.DRIVER_PATH)
+            driver = webdriver.Ie(executable_path=driver_path)
         driver.maximize_window()
+
     def fn():
         driver.quit()
 
@@ -39,20 +41,19 @@ def pytest_runtest_makereport(item):
     print('------------------------------------')
     # 获取钩子方法的调用结果
     out = yield
-    print('用例执行结果', out)
-
     # 3. 从钩子方法的调用结果中获取测试报告
     report = out.get_result()
     if report.when == 'call' and report.outcome == "failed":
         path1 = str(report.nodeid)
         path2 = path1.split("::")[-1]
-        png_path = G.report_path+"/%s_%s.png" % (datetime_strftime(),path2)
+        png_path = config.report_path + "\\%s_%s.png" % (datetime_strftime(fmt='%Y-%m-%d_%H%M%S'), path2)
         _capture_screenshot(png_path)
-        uploadFileToServer(png_path)
-
-
-
-
+        try:
+            url = uploadFileToServer(png_path)
+            setattr(item, 'imgurl', url)
+        except Exception as e:
+            setattr(item, 'imgurl', png_path)
+            log.info('上传截图失败,保存至本地,请检查连接')
 
 
 

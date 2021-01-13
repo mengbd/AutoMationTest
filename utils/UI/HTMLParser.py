@@ -68,7 +68,7 @@ class SeleniumParser(object):
         self.configs = Element('z_user_org_rightLoginindex')
 
     def login(self):
-        self.basePage.get_url("http://114.215.200.79:81/z_user_org_right/Login/index")
+        self.basePage.get_url("http://ip:81/z_user_org_right/Login/index")
         self.html = self.basePage.get_source()
         self.basePage.input_text(self.configs["userName"],"Admin")
         self.basePage.input_text(self.configs["userPwd"],"zjugis1402!")

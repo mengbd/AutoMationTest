@@ -1,0 +1,1 @@
+BasePage是Selenium基类，你可以基于这个类，结合自己的业务流程封装基类，WorkFlowActions_Reloease.py是我给的示例，请不要使用

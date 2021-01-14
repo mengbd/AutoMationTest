@@ -187,6 +187,20 @@ class UIGlobalVars(BaseConfig):
                     if number in br and self.browser_version in vr:
                         log.info("找到浏览器对应驱动版本号: {}".format(self.browser_version))
                         file_vr = self.browser_version
+                    else:
+                        log.info('当前版本为最新，未找到驱动，尝试使用当前大版本最新的驱动')
+                        latest_url = self.get_driver_url(self.browser)
+                        req = requests.get(latest_url)
+                        soup = BeautifulSoup(req.text, 'lxml')
+                        a_tag = soup.find_all(name='a')
+                        like_vr = self.browser_version.split(".")
+                        like_vr.pop(-1)
+                        like_vr = like_vr[0] + '.' + like_vr[1]+'.' + like_vr[2]
+                        like_list = list()
+                        for i in a_tag:
+                            if i.text.startswith(like_vr):
+                                like_list.append(i.text[:-1])
+                        file_vr = max(like_list)
                 else:
                     log.warning('当前网络不通，默认检测本地是否还有驱动!')
                     file_vr = self.browser_version

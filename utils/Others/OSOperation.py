@@ -1,7 +1,10 @@
 import os
+import subprocess
 import sys
 import logging
 import re
+import tempfile
+
 from utils.Others.TimeOperation import sleep
 
 log = logging.getLogger(__name__)
@@ -56,11 +59,38 @@ def Ping(raw_destination):
     elif len(destination) == 3:
         for i in destination:
             assert re.match(r'[\w\\:/]+', i)
-    recv = os.popen('ping %s' % raw_destination)
-    sleep(5)
-    recv = recv.read()
-    wrong = re.findall(r'Request\stimed\sout', recv)
-    ttl = re.findall(r'TTL=\d+', recv)
+        raw_destination = destination[0].split("//")[-1] + '.' + destination[1] + '.' + destination[2].split("/")[0]
+    wrong = True
+    ttl = None
+    if 'win' not in sys.platform or 'darwin' in sys.platform:
+        out_temp = tempfile.SpooledTemporaryFile()
+        fileno = out_temp.fileno()
+        ex = subprocess.Popen('ping %s -c4' % raw_destination, stdout=fileno, stderr=fileno, shell=True)
+        ex.wait(5)
+        out_temp.seek(0)
+        lines = out_temp.readlines()
+
+        for i in lines:
+            print(i)
+        lines = str(lines)
+        # out, err = ex.communicate()
+        wrong = re.findall(r'Request\stimed\sout', lines)
+        ttl = re.findall(r'ttl=\d+', lines)
+    else:
+        out_temp = tempfile.SpooledTemporaryFile()
+        fileno = out_temp.fileno()
+        ex = subprocess.Popen('ping %s' % raw_destination, stdout=fileno, stderr=fileno, shell=True)
+        ex.wait(5)
+        out_temp.seek(0)
+        lines = out_temp.readlines()
+
+        for i in lines:
+            print(i)
+            lines[lines.index(i)] = i.decode('gbk')
+        lines = str(lines)
+        wrong = re.findall(r'找不到主机', lines)
+        ttl = re.findall(r'TTL=\d+', lines)
+
     if not wrong and ttl:
         return True
     else:

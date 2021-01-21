@@ -6,6 +6,8 @@ from utils.HTTPRequest.HttpRequest import uploadFileToServer
 from utils.Others.TimeOperation import datetime_strftime
 import logging
 
+from utils.UI.WebPage.WorkFlowActions_Release import WorkFlowActions
+
 log = logging.getLogger(__name__)
 config = UIGlobalVars()
 driver = None
@@ -56,10 +58,16 @@ def pytest_runtest_makereport(item):
             log.info('上传截图失败,保存至本地,请检查连接')
 
 
-
 def _capture_screenshot(path):
     '''
     截图保存为png
     :return:
     '''
     return driver.get_screenshot_as_file(path)
+
+
+@pytest.fixture()
+def WorkFlowPage(drivers, request):
+    """新增DEMO，测试类使用"""
+    page = WorkFlowActions(driver=drivers)
+    request.cls.page = page

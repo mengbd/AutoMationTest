@@ -3,6 +3,8 @@ import os
 import time
 import re
 import random
+import logging
+
 from selenium.webdriver import ActionChains
 from config.globalVars import UIGlobalVars
 from utils.UI.WebPage.BasePage import WebPage
@@ -13,7 +15,10 @@ from ..read_element import read_config
 from pykeyboard import PyKeyboard
 from pymouse import PyMouse
 import pyperclip
-import logging
+from Models.z_workflow import IFlowInstance
+from utils.DBConnect.Oracle import DataBaseOperation
+from config.globalVars import DataBaseGlobalVars
+from collections import Iterable
 
 log = logging.getLogger(__file__)
 G = UIGlobalVars()
@@ -44,7 +49,7 @@ class LoginPlatform(object):
         log.info("读取%s的账号密码信息" % login_user)
         username, password = eval(self.UserLoginData[login_user])
         log.info("读取登录页元素定位配置")
-        self.LoginConfig = read_config('z_user_org_rightLoginindex')
+        setattr(self, 'LoginConfig', read_config('z_user_org_rightLoginindex'))
         log.info("开始打开页面")
         self.basePage.get_url(self.LoginURL)
         log.info("输入登录名")
@@ -63,6 +68,10 @@ class LoginPlatform(object):
 
 
 class WorkFlowActions(LoginPlatform):
+
+    def __init__(self, driver):
+        self.instance_id = None
+        super().__init__(driver)
 
     def get_this_instance_id(self):
         this_url = self.basePage.url()
@@ -96,30 +105,120 @@ class WorkFlowActions(LoginPlatform):
                 flow_btn.find_element_by_css_selector(
                     ".process-add").click()
 
-    def change_to_workflow(self, send_user="管理员"):
+    def change_to_workflow(self, send_user="管理员", *args, **kwargs):
 
         """
         创建指定流程后转件给指定人
         :param send_user: 转件给名字为所赋值的人，如果出现多次，则都会被选中
         :return:
         """
+        flow_status = kwargs.get('flow_status')
+        options = kwargs.get('options')
+        is_child = kwargs.get('is_child')
         self.switch_to_the_last_window()
         # 转件选择人配置
         self.WorkFlowDetailConfig = Element("work_flow_details")
-        this_flow_instance_id = self.get_this_instance_id()
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
         self.basePage.is_click(self.WorkFlowDetailConfig["转件按钮"])
-        nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["转件人"])
-        for i in nodes:
-            if i.text == send_user:
-                i.click()
-
-        self.basePage.is_click(self.WorkFlowDetailConfig["确定转件"])
-        setattr(self, 'instance_id', this_flow_instance_id)
+        if options:
+            self.insert_options()
 
         # 创建完成后会自动进入下一环节，登录所转件人账号进行校验，校验方式为切换至iframe中找寻创建件时的实例ID 的td标签
-        self.check_flow_create_or_false(instance_id=this_flow_instance_id, login_user=send_user)
+        if not flow_status:
+            nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["转件人"])
+            for i in nodes:
+                if i.text == send_user:
+                    i.click()
+            self.basePage.is_click(self.WorkFlowDetailConfig["确定转件"])
+            if is_child:
+                self.reverse_instance_id()
+            self.check_flow_create_or_false(login_user=send_user)
+        else:
+            if kwargs.get("auto") is True:
+                nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["转件人"])
+                for i in nodes:
+                    if i.text == send_user:
+                        i.click()
+                self.basePage.is_click(self.WorkFlowDetailConfig["确定转件"])
+                if is_child:
+                    self.reverse_instance_id()
+            self.check_flow_create_or_false(login_user=send_user, flow_status=flow_status)
 
-    def check_flow_create_or_false(self, instance_id, login_user="管理员", type="待办"):
+    def change_to_workflow_with_same_level(self, send_user="管理员", *args, **kwargs):
+        flow_status = kwargs.get('flow_status')
+        options = kwargs.get('options')
+        self.switch_to_the_last_window()
+        # 转件选择人配置
+        self.WorkFlowDetailConfig = Element("work_flow_details")
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
+        self.basePage.is_click(self.WorkFlowDetailConfig["同级转件"])
+        if options:
+            self.insert_options()
+
+        # 创建完成后会自动进入下一环节，登录所转件人账号进行校验，校验方式为切换至iframe中找寻创建件时的实例ID 的td标签
+        if not flow_status:
+            nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["转件人"])
+            for i in nodes:
+                if i.text == send_user:
+                    i.click()
+
+            self.basePage.is_click(self.WorkFlowDetailConfig["确定转件"])
+            self.check_flow_create_or_false(login_user=send_user)
+        else:
+            self.check_flow_create_or_false(login_user=send_user, flow_status=flow_status)
+
+    def reverse_instance_id(self):
+        """
+        父流程创建子流程时使用,
+        """
+        if not hasattr(self, 'parent_flow_id'):
+            databaseconfig = DataBaseGlobalVars()
+            connection_data = databaseconfig.data_base_config
+            connect_data = {'Z_WORKFLOW': connection_data['Z_WORKFLOW']}
+            DBsession = DataBaseOperation(connect_data)
+            dbsession = DBsession.session
+            child_flow = dbsession.query(IFlowInstance.id).filter(
+                IFlowInstance.parent_flow_ins_id == self.instance_id).all()
+            if child_flow:
+                setattr(self, 'parent_flow_id', self.instance_id)
+                self.instance_id = child_flow[0].id
+            else:
+                raise AttributeError("Can not found Child Flow")
+        else:
+            assert hasattr(self, 'parent_flow_id')
+            self.instance_id, self.parent_flow_id = self.parent_flow_id, self.instance_id
+
+    def change_to_workflow_multiple(self, send_user=tuple("管理员"), *args, **kwargs):
+
+        """
+        对于多个转件人的补充，只转件，不提供检查件是否转送成功(多个收件人无法确定使用哪个确认件)
+        :param send_user: 转件给名字为所赋值的人，如果出现多次，则都会被选中
+        :return:
+
+        """
+
+        assert isinstance(send_user, Iterable)
+        options = kwargs.get('options')
+        is_child = kwargs.get('is_child')
+        self.switch_to_the_last_window()
+        # 转件选择人配置
+        self.WorkFlowDetailConfig = Element("work_flow_details")
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
+        self.basePage.is_click(self.WorkFlowDetailConfig["转件按钮"])
+        if options:
+            self.insert_options()
+        nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["转件人"])
+        for i in nodes:
+            if i.text in send_user:
+                i.click()
+        self.basePage.is_click(self.WorkFlowDetailConfig["确定转件"])
+        if is_child:
+            self.reverse_instance_id()
+
+    def check_flow_create_or_false(self, login_user="管理员", flow_status="待办"):
         """
         校验之前存在的工作流是否存在，如果存在会进入该工作流
         :param instance_id: 工作流实例ID，创建件时解析URL所得
@@ -129,17 +228,18 @@ class WorkFlowActions(LoginPlatform):
         log.info("切换至首页")
         self.switch_to_the_first_window()
         log.info("切换出iframe")
-        self.basePage.driver.switch_to.default_content()
+        self.driver.switch_to.default_content()
         if self.CreateWorkFlowUser == login_user:
 
             # 创建人与转件人相同
             log.info("点击首页按钮")
             self.basePage.is_click(self.IndexMenuConfig["首页按钮"])
+            self.close_all_pages()
             log.info("点击办件中心")
             self.basePage.is_click(self.IndexMenuConfig["办件中心"])
 
             log.info("切换至办件中心iframe")
-            self.basePage.switch(self.IndexMenuConfig["办件中心iframe"])
+            self.basePage.switch(("xpath", "/html/body/div/div[2]/iframe"))
         else:
             now_user = self.UserLoginData[login_user]
             if not now_user:
@@ -155,14 +255,43 @@ class WorkFlowActions(LoginPlatform):
         time.sleep(5)
         btns = self.basePage.find_elements(self.IndexMenuConfig["办件中心状态按钮"])
         for i in btns:
-            if i.text == type:
+            if flow_status in i.text:
                 i.click()
-        instance = self.basePage.find_element(('css', "td[title='%s']" % instance_id))
+        workflow_btn = None
+        instance = self.basePage.find_element(('css', "td[title='%s']" % self.instance_id))
         # 办件中心的件下每个件下有一个td 标签，title属性为创建工作流失的flowinstance_id
         assert instance != []
-        workflow_btn = self.basePage.find_element(('css', "td[title='%s'] + td + td" % instance_id))
-        # 点击元素
-        ActionChains(self.driver).double_click(workflow_btn).perform()
+        time.sleep(3)
+        workflow_btn = self.basePage.find_elements(('css', "td[title='%s'] + td + td" % self.instance_id))
+        index = 0
+        if len(workflow_btn) > 1:
+            index = -1
+        setattr(self, 'bussiness_number', workflow_btn[index].text)
+        if flow_status == "待办":
+            if index == 0:
+                status_btn = self.basePage.find_element(('css', "td[title='%s'] + td + td + td" % self.instance_id))
+                setattr(self, 'link_status', status_btn.text)
+                flow_name = self.basePage.find_element(
+                    ('css', "td[title='%s'] + td + td + td + td + td" % self.instance_id))
+                setattr(self, 'flow_name', flow_name.text)
+                node_name = self.basePage.find_element(
+                    ('css', "td[title='%s'] + td + td + td + td + td + td" % self.instance_id))
+                setattr(self, 'node_name', node_name.text)
+                node_left_time = self.basePage.find_element(
+                    ('css', "td[title='%s'] + td + td + td + td + td + td + td" % self.instance_id))
+                flow_left_time = self.basePage.find_element(
+                    ('css', "td[title='%s'] + td + td + td + td + td + td + td + td" % self.instance_id))
+                setattr(self, 'node_left_time', node_left_time.text)
+                setattr(self, 'flow_left_time', flow_left_time.text)
+        ActionChains(self.driver).move_by_offset(0, 170)
+
+        ActionChains(self.driver).move_to_element(workflow_btn[index]).double_click(workflow_btn[index]).perform()
+
+    def close_all_pages(self):
+        script = """for (var i=0;i<$(".tabbar-item-close").length;i ++ ){
+                        $(".tabbar-item-close")[i].click()
+                        }"""
+        self.basePage.driver.execute_script(script)
 
     def return_message(self, login_user="管理员", index=0):
         """
@@ -172,8 +301,9 @@ class WorkFlowActions(LoginPlatform):
         :return:
         """
         self.switch_to_the_last_window()
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
         # 转件选择人配置
-        this_flow_instance_id = self.get_this_instance_id()
         self.basePage.is_click(self.WorkFlowDetailConfig["退回"])
         nodes = self.basePage.find_elements(self.WorkFlowDetailConfig["退回节点"])
         log.info("一共找到%s个退回节点，" % len(nodes))
@@ -185,7 +315,7 @@ class WorkFlowActions(LoginPlatform):
         ## 二层嵌套弹框selenium无法识别，改为使用Selenium执行JQuery语句完成确认退回
         # submit = self.basePage.driver.find_element_by_css_selector("span[index=0]")
         # submit.click()
-        self.check_flow_create_or_false(instance_id=this_flow_instance_id, login_user=login_user)
+        self.check_flow_create_or_false(login_user=login_user)
 
     def check_users(self, exclude):
 
@@ -211,7 +341,8 @@ class WorkFlowActions(LoginPlatform):
         # 转件选择人配置
         if not self.WorkFlowDetailConfig:
             self.WorkFlowDetailConfig = read_config("work_flow_details")
-        this_flow_instance_id = self.get_this_instance_id()
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
         self.basePage.is_click(self.WorkFlowDetailConfig["作废"])
         self.basePage.input_text(self.WorkFlowDetailConfig["作废原因"], "This Is The Test Message")
         ## 如果是初始节点作废会直接作废，如果是非初始节点会启用作废流程
@@ -219,14 +350,33 @@ class WorkFlowActions(LoginPlatform):
         if btn.text == "启用作废流程":
             self.basePage.is_click(self.WorkFlowDetailConfig["启动作废流程"])
             # 创建完成后会自动进入下一环节，登录所转件人账号进行校验，校验方式为切换至iframe中找寻创建件时的实例ID 的td标签
-            self.click_second_pop(action=1)
+            self.click_second_pop(action=0)
             # 跳转至作废流程
             self.change_to_workflow(send_user=apply_to)
         elif btn.text == "直接作废":
             self.basePage.is_click(self.WorkFlowDetailConfig["启动作废流程"])
-            self.click_second_pop(action=1)
+            self.click_second_pop(action=0)
             time.sleep(5)
-            self.check_flow_create_or_false(instance_id=this_flow_instance_id, login_user=apply_to, type="作废")
+            self.check_flow_create_or_false(login_user=apply_to, flow_status="作废")
+
+    def supervise_workflow(self):
+        self.switch_to_the_last_window()
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
+        if not self.WorkFlowDetailConfig:
+            self.WorkFlowDetailConfig = read_config("work_flow_details")
+        self.basePage.is_click(self.WorkFlowDetailConfig["督办"])
+        self.check_flow_create_or_false(login_user=self.CreateWorkFlowUser, flow_status='督办')
+
+    def focus_workflow(self):
+        self.switch_to_the_last_window()
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
+        if not self.WorkFlowDetailConfig:
+            self.WorkFlowDetailConfig = read_config("work_flow_details")
+        self.basePage.is_click(self.WorkFlowDetailConfig["收藏"])
+        self.check_flow_create_or_false(login_user=self.CreateWorkFlowUser, flow_status='关注')
+
 
     def click_second_pop(self, action=None):
         """二层弹窗，Selenium无法点击，转为使用执行JQuery语句
@@ -238,13 +388,13 @@ class WorkFlowActions(LoginPlatform):
         self.basePage.driver.execute_script(script)
 
     def read_workflow_loggs(self):
-        before_instance_id = self.get_this_instance_id()
+        self.switch_to_the_last_window()
         if not self.WorkFlowDetailConfig:
             self.WorkFlowDetailConfig = read_config("work_flow_details")
         self.basePage.is_click(self.WorkFlowDetailConfig["流程日志"])
         self.switch_to_the_last_window()
-        now_instance_id = self.get_this_instance_id()
-        assert now_instance_id == before_instance_id
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
         process_list = self.basePage.find_elements(self.WorkFlowDetailConfig["流程详情"])
         # 至少三个流程节点
         assert len(process_list) >= 3
@@ -382,12 +532,32 @@ class WorkFlowActions(LoginPlatform):
 
     def hang_on_work_flow(self, ):
         """挂起流程"""
-        pass
-
-    def create_backends_User(self):
-        """创建后台人员，并绑定至对应部门"""
-        pass
+        self.switch_to_the_last_window()
+        # 转件选择人配置
+        if not self.WorkFlowDetailConfig:
+            self.WorkFlowDetailConfig = read_config("work_flow_details")
+        if not self.instance_id:
+            self.instance_id = self.get_this_instance_id()
+        self.basePage.is_click(self.WorkFlowDetailConfig["流程挂起"])
+        self.basePage.input_text(self.WorkFlowDetailConfig["挂起原因"], "This Is The Test Message")
+        self.basePage.is_click(self.WorkFlowDetailConfig['确认挂起'])
+        self.click_second_pop()
+        self.check_flow_create_or_false(flow_status="挂起", login_user=self.CreateWorkFlowUser)
 
     def flowInstancePrint(self):
         """适配打印逻辑"""
-        pass
+        self.switch_to_the_last_window()
+        if not self.WorkFlowDetailConfig:
+            self.WorkFlowDetailConfig = read_config("work_flow_details")
+        self.basePage.is_click(self.WorkFlowDetailConfig['打印'])
+        self.switch_to_the_last_window()
+        time.sleep(10)
+        self.basePage.switch(self.WorkFlowDetailConfig['打印iframe'])
+        self.basePage.is_click(self.WorkFlowDetailConfig['打印报表'])
+        time.sleep(5)
+        virtual_keyboard = PyKeyboard()
+        virtual_keyboard.press_key('Return')
+        """需要提前配置打印机，只能模拟键盘操作，按Return键"""
+
+    def insert_options(self):
+        self.basePage.input_text(self.WorkFlowDetailConfig['转件意见'], 'This is A Test Message')

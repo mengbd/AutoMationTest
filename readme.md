@@ -871,7 +871,10 @@ def _capture_screenshot(path):
 
 GitHub: 
 
-[GitHub-AutoMationTest]: https://github.com/oslo254804746/AutoMationTest
+[GitHub-AutoMationTest](https://github.com/oslo254804746/AutoMationTest)
 
+Gitee(China)
+
+[Gitee-AutoMationTest](https://gitee.com/oslo254804746/AutoMationTest)
 
 

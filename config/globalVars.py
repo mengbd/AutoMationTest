@@ -12,27 +12,53 @@ from selenium.webdriver.common.by import By
 from Models.TestCase import Testcaseresult
 from utils.Others.OSOperation import Ping
 
-
 log = logging.getLogger(__name__)
+
+DEFAULT_IP = "ip"
+DEFAULT_PORT = 82
+DEFAULT_TASKNAME = 'Local'
+DEFAULT_WORKER = 'Python AutoMation Test'
 
 
 class BaseConfig(object):
+    __config = None
+
+    def __new__(cls, *args, **kwargs):
+        if os.path.exists(os.path.join(os.path.dirname(__file__), 'config.json')):
+            with open(os.path.join(os.path.dirname(__file__), 'config.json'), 'rb') as f:
+                config = f.read()
+            if config:
+                try:
+                    cls.__config = json.loads(config)
+                except Exception as e:
+                    pass
+        return super().__new__(cls)
 
     def __init__(self, *args, **kwargs):
-        self.Server_IP = "ip"
-        self.Server_Port = 82
+        """
+        配置相关，配合TASK接口
+        """
+        log.info('Using Parsed Configs : %s ' % self.__config)
+        self.Server_IP = self.__config.get("Server_IP", DEFAULT_IP)
+        self.Server_Port = self.__config.get("Server_Port", DEFAULT_PORT)
+        self.worker = self.__config.get("Worker", DEFAULT_WORKER)
+        self.task_name = self.__config.get("Task_Name", DEFAULT_TASKNAME)
+
+        # 路径相关
         self.root = os.path.dirname(__file__)
         self.project_root = os.path.dirname(self.root)
         self.report_path = os.path.join(self.project_root, 'report')
         self.log_path = os.path.join(self.project_root, 'log')
-        self.worker = kwargs.get('worker') if kwargs.get('worker') else "AUTOMATION TEST"
-        self.task_name = 'Daily'
+
         self.case = self.gen_case_model() if (self.task_name and self.task_name != 'Local') else None
+
+        self.dispatch_env = kwargs.get('env', 'test')  # 环境名称 develop or test
+        self.env_auto()
 
     @staticmethod
     def get_upload_api():
-        # 可修改项 执行记录保存接口 替换为自己的接口
-        url = 'http://ip:port/apis/caseresult/'
+        # 可修改项
+        url = 'http://ip:83/apis/caseresult/'
         return url
 
     @staticmethod
@@ -46,6 +72,10 @@ class BaseConfig(object):
         request = requests.post(self.get_upload_api(), json.dumps(case))
         return True if request.status_code == 201 else False
 
+    def env_auto(self):
+        PortList = {'develop': 81, 'test': 82}
+        self.Server_Port = PortList.get(self.dispatch_env, 81)
+
 
 class APIGlobalVars(BaseConfig):
 
@@ -53,7 +83,7 @@ class APIGlobalVars(BaseConfig):
         super().__init__()
         self.UploadFileAPI = "/z_file_management/FileInfoApi/uploadFileByOtherSystem"
         self.Auth_Method = ''  # 可修改项，认证方式
-        self.Server_Checking_ticket = {"ticket_name": (None, "ticket_password")}
+        self.Server_Checking_ticket = {"zjugis.api.ticket": (None, "wwkj&key&zdww1402")}
         if self.Auth_Method:
             self.Server_Checking_Username = ""
             self.Server_Checking_password = ""
@@ -61,46 +91,82 @@ class APIGlobalVars(BaseConfig):
 
 class DataBaseGlobalVars(BaseConfig):
 
-    def __init__(self):
-        super().__init__()
-        self.data_base_config = {
-            'Z_AUTO_DEPLOY':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_USER_ORG_RIGHT':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_BUSSINESS_COMMOM':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_FILE_MANAGEMENT':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_MIDDLEWARE_MQ':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_SPRING_DEMO':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_WORKFLOW':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'Z_WEB_CONTAINER':
-                {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                 'InstanceName': 'develop'},
-            'sys': {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
-                    'InstanceName': 'develop', 'mode': 'SYSDBA'}, }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __getitem__(self, key):
+        data_base_config = {
+            'develop': {
+                'Z_AUTO_DEPLOY':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_USER_ORG_RIGHT':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_BUSSINESS_COMMOM':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_FILE_MANAGEMENT':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_MIDDLEWARE_MQ':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_SPRING_DEMO':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_WORKFLOW':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'Z_WEB_CONTAINER':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'develop'},
+                'sys': {'ip': 'ip', 'ListenerPort': 1521, 'password': 'ZDWW1402',
+                        'InstanceName': 'test', 'mode': 'SYSDBA'}, },
+            'test': {
+                'Z_AUTO_DEPLOY':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_USER_ORG_RIGHT':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_BUSSINESS_COMMOM':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_FILE_MANAGEMENT':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_MIDDLEWARE_MQ':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_SPRING_DEMO':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_WORKFLOW':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'Z_WEB_CONTAINER':
+                    {'ip': 'ip', 'ListenerPort': 1521, 'password': 'password',
+                     'InstanceName': 'test'},
+                'sys': {'ip': 'ip', 'ListenerPort': 1521, 'password': 'zdww1402!test',
+                        'InstanceName': 'test', 'mode': 'SYSDBA'}, }
+        }
+        return data_base_config.get(key)
 
 
 class UIGlobalVars(BaseConfig):
-    def __init__(self):
-        super().__init__()
-        self.retry_times = 3
-        self.TIME_OUT = 30
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.retry_times = self._BaseConfig__config.get('retry_times', 3)
+        self.TIME_OUT = self._BaseConfig__config.get('TIME_OUT', 30)
+        self.browser = self._BaseConfig__config.get('Browser', "CHROME")  # 可修改项,浏览器类型,当前支持IE以及Chrome
+
         self.resource_path = os.path.join(self.project_root, "resource")
         self.web_driver_path = os.path.join(self.resource_path, "webdriver")
         self.ELEMENT_PATH = os.path.join(os.path.dirname(self.web_driver_path), "PageElement")
-        self.browser = "IE"  # 可修改项,浏览器类型,当前支持IE以及Chrome
+
         self.DRIVER_PATH = None
         self.browser_version = None
         # 定位元素语法
@@ -160,6 +226,7 @@ class UIGlobalVars(BaseConfig):
             self.browser_version = selenium.__version__
         file_vr = self.search_ver()
         if not file_vr:
+            log.info('当前版本未查询到对应驱动，尝试使用LATEST驱动')
             raise Exception("未获取到版本号! 请检查!")
         status, file = self.check_driver(file_vr)
         if not status:
@@ -195,7 +262,7 @@ class UIGlobalVars(BaseConfig):
                         a_tag = soup.find_all(name='a')
                         like_vr = self.browser_version.split(".")
                         like_vr.pop(-1)
-                        like_vr = like_vr[0] + '.' + like_vr[1]+'.' + like_vr[2]
+                        like_vr = like_vr[0] + '.' + like_vr[1] + '.' + like_vr[2]
                         like_list = list()
                         for i in a_tag:
                             if i.text.startswith(like_vr):
@@ -265,7 +332,8 @@ class UIGlobalVars(BaseConfig):
                     file = "IEDriverServer_{}.zip".format(file_vr)
                     driver = "IEdriverServer.exe"
                     r = requests.get(
-                        "{}{}/IEDriverServer_{}.zip".format(self.get_driver_url(self.browser), self.req_version, file_vr))
+                        "{}{}/IEDriverServer_{}.zip".format(self.get_driver_url(self.browser), self.req_version,
+                                                            file_vr))
                 file_path = os.path.join(self.web_driver_path, file)
                 log.info("开始下载!")
                 with open(file_path, "wb") as f:
@@ -308,3 +376,5 @@ class UIGlobalVars(BaseConfig):
         with zipfile.ZipFile(filename) as f:
             for names in f.namelist():
                 f.extract(names, self.web_driver_path)
+
+

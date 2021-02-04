@@ -2,19 +2,18 @@ import logging
 
 import pytest
 from utils.UI.WebPage.WorkFlowActions_Release import WorkFlowActions
+
 log = logging.getLogger(__file__)
 
+
 @pytest.mark.TestCase("[1]新建详情，转件成功，且对应首页能查看到记录")
-def test_demo( drivers):
+def test_demo(drivers):
     driver = drivers
     try:
         create_workflow = WorkFlowActions(driver)
         create_workflow.login()
     except Exception as e:
         raise e
-
-
-
 
 
 @pytest.mark.usefixtures("WorkFlowPage")
@@ -186,4 +185,3 @@ class TestWorkFlowProcessing:
         for i in send_user:
             self.page.check_flow_create_or_false(login_user=i)
             self.page.change_to_workflow(flow_status='已完成', send_user=i)
-

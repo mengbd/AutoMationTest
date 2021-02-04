@@ -1,17 +1,20 @@
-##### 根据文件名 ByFilename, 根据用例名，ByCasename
-运行模式: ByFilename
+##运行模式:   根据文件名 ByFilename, 根据用例名，ByCasename
+RunMode: ByCasename
 # 根据文件名跑填，多个文件用,隔开
-文件名: ['test_z_workflow_api', 'test_z_web_container_api']
+FileName: ['test_z_workflow_ui.py']
 # 根据用例名跑填，多个用例用,隔开
-用例名: []
+CaseName: ['test_HandlerCaseApi_list4Agency_POST',]
 # 失败重新跑的次数
-失败重跑次数: 1
-失败重跑延时: 5
+ReRunTimes: 1
+#重跑间隔
+ReRunDelay: 5
 #任务名 非Local会上传测试日志至数据库
-任务名: Daily
-
+TaskConfig: {"Server_IP": "", "Server_Port": "", "Worker": "", "Task_Name": "", "retry_times": 3, "TIME_OUT": 30, "Browser":""}
 #工程文件夹
-工程文件夹: /TEST_AUTOMATION/
-
-
-
+ProjectRoot: /Users/wangbaofeng/PycharmProjects/TEST_AUTOMATION
+#任务执行事件: 2021-02-04 14:05:00
+ExecTime: 2021-02-04 14:06:00
+#结果通知邮箱:
+NotifiEmailAddress: ['254804746@qq.com',]
+# 结果发送邮箱
+SendUserConfig: {'host': '', 'port': 25 , 'user': '', 'password': ''}

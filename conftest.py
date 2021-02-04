@@ -2,7 +2,7 @@ import pytest
 import os
 import sys
 import re
-
+sys.path.append(os.path.dirname(__file__))
 import logging
 from config.globalVars import BaseConfig
 from utils.Others.TimeOperation import datetime_strftime
@@ -59,7 +59,6 @@ def pytest_runtest_makereport(item, call):
 
 
     """
-    print('------------------------------------')
     out = yield
     report = out.get_result()
     if report.when == 'call':

@@ -877,4 +877,6 @@ Gitee(China)
 
 [Gitee-AutoMationTest](https://gitee.com/oslo254804746/AutoMationTest)
 
-
+# 6 特别致谢
+感谢JetBrains对于本项目的大力支持 
+[JetBrain](https://jb.gg/OpenSource)
